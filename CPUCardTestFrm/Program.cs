@@ -15,7 +15,7 @@ namespace CPUCardTestFrm
         [STAThread]
         static void Main()
         {
-            if (true)
+            if (false)
             {
                 CPUCardTest.TestMain();
             }

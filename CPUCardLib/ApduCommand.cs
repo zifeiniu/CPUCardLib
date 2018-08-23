@@ -74,28 +74,28 @@ namespace CPUCardLib
         /// <summary>
         /// 指令类别;
         /// </summary>
-        public byte CLA { get; set; }
+        public byte CLA = 0x00;
 
         /// <summary>
         /// 指令类型的指令码
         /// </summary>
-        public byte INS;
+        public byte INS = 0x00;
 
         /// <summary>
         /// 命令参数
         /// </summary>
-        public byte P1;
+        public byte P1 =  0x00;
 
         /// <summary>
         /// 命令参数
         /// </summary>
-        public byte P2;
+        public byte P2 = 0x00;
          
 
         /// <summary>
         /// Data 长度，不可超过239
         /// </summary>
-        public byte LC;
+        public byte LC = 0x00;
 
         /// <summary>
         /// 荷载数据
@@ -105,7 +105,7 @@ namespace CPUCardLib
         /// <summary>
         /// 要求返回的数据长度，如果是00，则返回最多可用
         /// </summary>
-        public byte LE;
+        public byte? LE = null;
 
         /// <summary>
         /// 设置P1P2（int类型，比如设置文件偏移量）
@@ -185,6 +185,10 @@ namespace CPUCardLib
                 list.AddRange(Data);
             }
 
+            if (LE != null)
+            {
+                list.Add(LE.Value);
+            }
             return list.ToArray();
         }
 
@@ -197,7 +201,7 @@ namespace CPUCardLib
                 CPUCardHelper.ConvertoHEX(P2),
                 CPUCardHelper.ConvertoHEX(LC),
                 BitConverter.ToString(Data),
-                CPUCardHelper.ConvertoHEX(LE),
+                CPUCardHelper.ConvertoHEX(LE.Value),
                Msg);
 
         }

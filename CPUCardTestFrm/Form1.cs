@@ -17,84 +17,77 @@ namespace CPUCardTestFrm
     {
 
 
-        PcscCardReader device = null;
-
         CpuCard CardReader = null;
 
         public Form1()
         {
             InitializeComponent();
+            CPUCardLogHelper.logAction += CPUCardLogHelper_logAction;
+            SetAllCardReader();
+        }
 
+        public void SetAllCardReader()
+        {
             //初始化设备，订阅日志
-            device = new PcscCardReader();
-
-            CPUCardLogHelper.logAction += CPUCardLogHelper_logAction; ;
-
-
+            PcscCardReader device = new PcscCardReader();
             string[] dd = device.GetAllReader();
             comboBox1.Items.AddRange(device.GetAllReader());
+
             if (comboBox1.Items.Count > 0)
             {
                 comboBox1.SelectedIndex = 0;
             }
-             
         }
 
         private void CPUCardLogHelper_logAction(LogInfo obj)
         {
-            this.Invoke(new Action(()=> {
-                  
-                 
+            this.Invoke(new Action(() => {
                 txtLog.AppendText("###LOG###" + obj.ToString() + "\r\n");
-
             }));
-            
-        } 
+        }
 
         private void button12_Click(object sender, EventArgs e)
         {
             openFileDialog1.FileName = "";
             openFileDialog1.Filter = "文本文件(*.txt)|*.txt|所有文件(*.*)|*.*”";
             if (openFileDialog1.ShowDialog() == DialogResult.OK)
-            { 
-                txtContent.Text = File.ReadAllText(openFileDialog1.FileName,Encoding.Default);
+            {
+                txtContent.Text = File.ReadAllText(openFileDialog1.FileName, Encoding.Default);
             }
         }
-         
 
         private void button3_Click(object sender, EventArgs e)
         {
-            SelectDevice();
+            UseDeCard();
         }
 
-        public void SelectDevice()
+        /// <summary>
+        /// 使用德卡读卡器
+        /// </summary>
+        public void UseDeCard()
         {
-            
-            if (true)
+            DeCardReader deCardReader = new DeCardReader();
+            CardReader = new CpuCard(deCardReader);
+        }
+        /// <summary>
+        /// 使用标准的PCSC设备
+        /// </summary>
+        public void SelectPCSCDevice()
+        {
+            if (!string.IsNullOrWhiteSpace(comboBox1.SelectedItem.ToString()))
             {
-                //使用德卡
-                DeCardReader deCardReader = new DeCardReader();
-                CardReader = new CpuCard(deCardReader);
-            }
-            else
-            {
-                if (!string.IsNullOrWhiteSpace(comboBox1.SelectedItem.ToString()))
+                PcscCardReader device = new PcscCardReader();
+                device.CardReaderName = comboBox1.SelectedItem.ToString();
+                if (!device.OpenReader(out string msg))
                 {
-                    device.CardReaderName = comboBox1.SelectedItem.ToString();
-                    if (!device.OpenReader(out string msg))
-                    {
-                        MessageBox.Show(msg);
-                    }
-                    else
-                    {
-                        CardReader = new CpuCard(device);
-                    }
+                    MessageBox.Show(msg);
+                }
+                else
+                {
+                    CardReader = new CpuCard(device);
                 }
             }
-
-            
         }
-         
 
         private void button2_Click(object sender, EventArgs e)
         {
@@ -139,13 +132,13 @@ namespace CPUCardTestFrm
 
                 txtLog.AppendText(string.Format(msg, apduMsg.Status, apduMsg.Msg, BitConverter.ToString(apduMsg.ResponseData)));
             }
-            
+
         }
 
         private void button11_Click(object sender, EventArgs e)
         {
-            
-            CardReader.ReadFile(GetFileID(), out string msg );
+
+            CardReader.ReadFile(GetFileID(), out string msg);
             txtRead.Text = msg;
         }
 
@@ -155,7 +148,7 @@ namespace CPUCardTestFrm
             DisplayLog(msg);
         }
 
-        
+
 
         private void button1_Click(object sender, EventArgs e)
         {
@@ -166,7 +159,7 @@ namespace CPUCardTestFrm
             catch (Exception)
             {
                 MessageBox.Show("命令有误");
-                
+
             }
         }
 
@@ -184,19 +177,9 @@ namespace CPUCardTestFrm
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            SelectDevice();
+            SelectPCSCDevice();
         }
-
-        private void button14_Click(object sender, EventArgs e)
-        {
-             
-
-        }
-
-        private void button7_Click(object sender, EventArgs e)
-        {
-
-        }
+         
 
         private void button15_Click(object sender, EventArgs e)
         {
@@ -211,14 +194,14 @@ namespace CPUCardTestFrm
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message);
-                
+
             }
         }
 
         private void button10_Click(object sender, EventArgs e)
         {
             ApduMsg msg = CardReader.WriteContent(GetFileID(), txtContent.Text);
-            
+
             DisplayLog(msg);
         }
 
@@ -227,17 +210,34 @@ namespace CPUCardTestFrm
             CardReader.GetALlFiles();
         }
 
+        /// <summary>
+        /// 长安通 公交卡  A00000000386980701
+        /// </summary>
+        byte[] ChangAnTongName = { (byte) 0xA0, (byte) 0x00,
+(byte) 0x00, (byte) 0x00, (byte) 0x03, (byte) 0x86, (byte) 0x98,
+(byte) 0x07, (byte) 0x01, };
+         
         private void button17_Click(object sender, EventArgs e)
         {
-            CardReader.ReadGongjiaoka();
-            
-
+            CardReader.SelectFileName("1PAY.SYS.DDF01"); 
+            CardReader.SelectFileName(ChangAnTongName);
+            ApduMsg msg = CardReader.GetBalance(true);
+            if (msg.IsSuccess)
+            {
+               byte[] data =  msg.GetData();
+                if (data.Length == 4)
+                {
+                    double Balance = ((data[0] << (8 * 3)) + (data[1] << (8 * 2)) + (data[2] << (8 * 1)) + data[3]) / 100.0;
+                    labYue.Text = "公交卡余额为" + Balance;
+                    return;
+                }
+            }
+            labYue.Text = "读取失败";
         }
 
-        private void button18_Click(object sender, EventArgs e)
-        {
+        
 
-        }
+         
     }
      
 }

@@ -153,21 +153,28 @@ namespace CPUCardLib
             return ApduMsg.GetApduByData(SendStrCommand(hex));
         }
 
+
+        public ApduMsg SelectFileName(string fileName)
+        {
+            byte[] value = Encoding.ASCII.GetBytes(fileName);
+            return SelectFileName(value);
+        }
+
         /// <summary>
         /// 根据文件名称选择
         /// </summary>
         /// <param name="fileName"></param>
         /// <returns></returns>
-        public ApduMsg SelectFileName(string fileName)
+        public ApduMsg SelectFileName(byte[] fileName)
         {
             //00A40400 09 A00000000386980701
             byte[] dd = CPUCardHelper.ConverToBytes("00A40400");
-            byte[] value = Encoding.ASCII.GetBytes(fileName);
+            
 
             List<byte> result = new List<byte>();
             result.AddRange(dd);
-            result.Add((byte)value.Length);
-            result.AddRange(value);
+            result.Add((byte)fileName.Length);
+            result.AddRange(fileName);
             byte[] cmd = result.ToArray();
             byte[] data = carder.SendCommand(cmd);
             return ApduMsg.GetApduByData(data);
@@ -544,6 +551,30 @@ namespace CPUCardLib
             Console.WriteLine(msg);
 
         }
+
+        /// <summary>
+        /// 读余额
+        /// </summary>
+        public ApduMsg GetBalance(bool IsWallet)
+        {
+            ApduCommand cmd = new ApduCommand();
+            cmd.CLA = 0x80;
+            cmd.INS = 0x5C;
+            //根据文档，01用于电子存折，02用于电子钱包
+            if (!IsWallet)
+            {
+                cmd.P2 = 0x01;
+            }
+            else
+            {
+                cmd.P2 = 0x02;
+            }
+
+            cmd.LE = 0x4;
+
+            return ApduMsg.GetApduByData(SendStrCommand(cmd));
+        }
+
 
     }
 
