@@ -49,6 +49,11 @@ namespace CPUCardTestFrm
             }
         }
 
+        public static void Beep() 
+        {
+            cardReader.Beep();
+        
+        }
 
         public static void InitCard()
         {
@@ -95,6 +100,10 @@ namespace CPUCardTestFrm
       
         public static bool CreateFile(ushort fileID, string content, out string msg)
         {
+
+            //写之前先清空分区
+            CPUCardWrapper.DeleteFile(fileID);
+
             msg = "";
            
             byte[] data = encod.GetBytes(content);
@@ -138,9 +147,13 @@ namespace CPUCardTestFrm
                 //选择创建的文件夹
                 cpuCard.SelectFileById(fileID);
 
-                 
+                //cpuCard.RemoveDF();
+                //cpuCard.SelectFileById(fileID);
+
                 ApduMsg msgApd = cpuCard.CreateAndWriteContent(fixFileID, content);
 
+                //先选择根目录
+                cpuCard.SelectMF();
 
                 if (!msgApd.IsSuccess)
                 {
@@ -184,10 +197,20 @@ namespace CPUCardTestFrm
                 cpuCard.SelectMF();
 
                 //选择创建的文件夹
-                cpuCard.SelectFileById(fileID);
+                ApduMsg msg = cpuCard.SelectFileById(fileID);
 
-                ApduMsg msg = cpuCard.RemoveDF();
+                if (msg.Code == "6A-82")
+                {
+                    return true;
+                }
+                else
+                {
+                    ApduMsg ms2g = cpuCard.RemoveDF();
+                    Console.WriteLine();
+                }
 
+
+                
                 //再退出到根目录
                 cpuCard.SelectMF();
                 if (msg.IsSuccess)
@@ -212,6 +235,7 @@ namespace CPUCardTestFrm
         public static bool ReadFile(ushort fileID, out string msg)
         {
            
+
             byte[] data = new byte[0];
             string contentOrMsg;
             msg = "";
@@ -232,7 +256,11 @@ namespace CPUCardTestFrm
                 result = false;
                 WriteLog($"读取失败{fileID},错误原因{contentOrMsg}");
             }
- 
+
+            WriteLog("***********************\r\n");
+            WriteLog($"读取文件{fileID}---- {result} ---- {msg}");
+            WriteLog("***********************\r\n");
+
             return result;
 
         }
@@ -263,7 +291,16 @@ namespace CPUCardTestFrm
                 cpuCard.SelectFileById(fileID);
 
                 //选择文件
-                cpuCard.SelectFileById(fixFileID);
+                ApduMsg msg =  cpuCard.SelectFileById(fixFileID);
+
+                //文件不存在
+                if (msg.Code == "6A-82")
+                {
+                    contentOrMsg = "文件不存在";
+                    cpuCard.SelectMF();
+                    return false;
+                }
+
                 //读取
 
                 bool res = cpuCard.ReadFile(fixFileID, out data, out contentOrMsg);
@@ -295,6 +332,46 @@ namespace CPUCardTestFrm
         public static bool Auth(string key = DefaultKEY)
         {
             return cpuCard.Auth(DefaultKEY).IsSuccess;
+        }
+
+        /// <summary>
+        /// 清空卡
+        /// </summary>
+        /// <param name="fileID"></param>
+        /// <returns></returns>
+        public static bool ClearCard()
+        {
+
+            try
+            {
+                cardReader.OpenReader(out string msgInf);
+
+                //默认进行身份验证
+                Auth();
+
+                //先选择根目录
+                cpuCard.SelectMF();
+
+                ApduMsg msg = cpuCard.RemoveDF();
+
+                //再退出到根目录
+                cpuCard.SelectMF();
+                if (msg.IsSuccess)
+                {
+                    return true;
+                }
+                // cardReader.CloseReader();
+            }
+            catch (Exception ex)
+            {
+                return false;
+
+            }
+            finally
+            {
+                // run.Close();
+            }
+            return false;
         }
 
     }

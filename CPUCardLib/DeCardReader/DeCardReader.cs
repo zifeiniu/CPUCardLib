@@ -18,7 +18,7 @@ namespace CPUCardLib
         /// <summary>
         /// 每BeepTimes 次，beep一次
         /// </summary>
-        public int BeepTimes = 5;
+        public int BeepTimes = 10000;
 
         /// <summary>
         /// 读卡器是否每次读取都要有声音

@@ -28,7 +28,6 @@ namespace CPUCardTestFrm
         private void button1_Click(object sender, EventArgs e)
         {
             
-          
             CPUCardWrapper.CreateFile(GetCurrentFileID(), txtInput.Text, out string msg);
             WireLog(msg);
 
@@ -96,13 +95,15 @@ namespace CPUCardTestFrm
             CPUCardWrapper.cpuCard.CardSendCommand(CPUCardHelper.ConverToBytes(txtCMD.Text));
         }
 
+        ushort maxFileID = 10;
+
         private void button8_Click(object sender, EventArgs e)
         {
             
 
-            for (ushort i = 1; i < 20; i++)
+            for (ushort i = 1; i < maxFileID; i++)
             {
-                string data = GetRandomData(r.Next(100, 1000));
+                string data = GetRandomData(r.Next(10, 100),i.ToString());
                 CPUCardWrapper.CreateFile(i, data, out string msg);
             }
 
@@ -111,15 +112,65 @@ namespace CPUCardTestFrm
 
         Random r = new Random();
 
-        public string GetRandomData(int lenght) 
+        public string GetRandomData(int lenght,string data=null) 
         {
              StringBuilder sb = new StringBuilder();
             for (int i = 0; i < lenght; i++)
             {
-                sb.Append(r.Next(0, 9));
+                if (data != null)
+                {
+                    sb.Append(data);
+                }
+                else
+                {
+                    sb.Append(r.Next(0, 9));
+                }
+
             }
             return sb.ToString();
         
+        }
+
+        private void button9_Click(object sender, EventArgs e)
+        {
+             CPUCardWrapper.ClearCard();
+        }
+
+        private void button10_Click(object sender, EventArgs e)
+        {
+
+            txtoutput.Text = "";
+            for (ushort i = 1; i < maxFileID; i++)
+            {
+                txtoutput.AppendText("--------------------------------------\r\n");
+                if (CPUCardWrapper.ReadFile(i, out string msg))
+                {
+
+                    txtoutput.AppendText(i+"读取成功" + msg+ "\r\n");
+                }
+                else
+                {
+                    txtoutput.AppendText(i + "读取失败" + msg+ "\r\n");
+                }
+            } 
+        }
+
+        private void button11_Click(object sender, EventArgs e)
+        {
+            string data = GetRandomData(30000);
+            CPUCardWrapper.CreateFile(GetCurrentFileID(), data, out string msg);
+
+            CPUCardWrapper.ReadFile(GetCurrentFileID(), out string readData);
+            if (data == readData)
+            {
+                MessageBox.Show("成功");
+            }
+            else
+            {
+                Console.WriteLine();
+            }
+
+
         }
     }
 }

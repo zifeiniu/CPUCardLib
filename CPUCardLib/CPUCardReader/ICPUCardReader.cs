@@ -31,6 +31,10 @@ namespace CPUCardLib
         byte[] SendCommand(byte[] cmd);
 
 
+        /// <summary>
+        ///读卡器发出声音
+        /// </summary>
+        void Beep();
     }
 
 }

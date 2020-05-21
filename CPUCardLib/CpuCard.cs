@@ -252,9 +252,9 @@ namespace CPUCardLib
         /// <returns></returns>
         public ApduMsg SelectMF()
         {
-            //return ApduMsg.GetApduByData(SendStrCommand("00A40000023F00"));
-            return ApduMsg.GetApduByData(SendStrCommand("00,A4,00,00,00"));
-            
+            return ApduMsg.GetApduByData(SendStrCommand("00A40000023F00"));
+            //            return ApduMsg.GetApduByData(SendStrCommand("00,A4,00,00,00"));
+
 
         }
 

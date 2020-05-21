@@ -191,5 +191,9 @@ namespace CPUCardLib
             }
         }
 
+        public void Beep()
+        {
+            
+        }
     }
 }
