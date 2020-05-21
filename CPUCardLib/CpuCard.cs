@@ -1,5 +1,4 @@
-﻿using PscsCardReaderLib;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -14,6 +13,51 @@ namespace CPUCardLib
     public class CpuCard
     {
 
+        public Action<string> ShowLog;
+
+
+        public Func<byte[], byte[]> SendMsgMiddleware;
+
+        public byte[] CardSendCommand(byte[] cmd)
+        {
+            if (ShowLog != null)
+            {
+                ShowLog("------------------------------\r\n");
+                ApduCommand msg = new ApduCommand(cmd);
+
+                if (msg.CmdNote.Trim().StartsWith("建立文件"))
+                {
+                    CPUFileType cpy = (CPUFileType)(msg.Data[0]);
+                    msg.CmdNote += "类型" + cpy.ToString() + "    ";
+
+
+                }
+                string log = $"发送原始命令:{BitConverter.ToString(cmd)} \r\n" + msg.ToString() + "\r\n";
+
+
+
+                ShowLog(log);
+
+            }
+
+            byte[] result = this.carder.SendCommand(cmd);
+
+            if (ShowLog != null)
+            {
+                ApduMsg apduMsg = ApduMsgHelper.GetApduMsg(result);
+
+                string msg = "状态:{0}  信息:{1} 结果:{2} \r\n";
+
+                msg = string.Format(msg, apduMsg.Status, apduMsg.Msg, BitConverter.ToString(apduMsg.ResponseData));
+
+                string log = "接收: " + msg;
+                ShowLog(log);
+            }
+            return result;
+
+        }
+
+
         /// <summary>
         /// 如果发送数据出错，重试次数
         /// </summary>
@@ -23,12 +67,12 @@ namespace CPUCardLib
 
         //每次读取或写入的默认自己长度
         int DefalutReadLenght = 250;
-        
+
 
         /// <summary>
         /// 默认二进制储存字符串的编码格式
         /// </summary>
-        public Encoding DefaultConding = Encoding.Unicode;
+        public Encoding DefaultConding = Encoding.UTF8;
 
         /// <summary>
         /// 初始化，必须有读卡器设备
@@ -67,7 +111,6 @@ namespace CPUCardLib
 
             byte[] Random = SendStrCommand(RANDOMCMD);
 
-            CPUCardLogHelper.AddLog("获取随机数：" + BitConverter.ToString(Random));
 
             if (Random.Length != 6)
             {
@@ -82,9 +125,7 @@ namespace CPUCardLib
             cmdList.AddRange(CPUCardHelper.ConverToBytes("00 82 00 00 08"));
             cmdList.AddRange(CPUCardHelper.Encrypt(Randomdata, Key));
 
-            byte[] data = carder.SendCommand(cmdList.ToArray());
-
-            CPUCardLogHelper.AddLog(LogTypeEnum.info, "身份验证接收", BitConverter.ToString(data));
+            byte[] data = CardSendCommand(cmdList.ToArray());
 
             return ApduMsg.GetApduByData(data);
 
@@ -100,7 +141,7 @@ namespace CPUCardLib
         /// <returns></returns>
         public byte[] SendStrCommand(string str)
         {
-            return carder.SendCommand(CPUCardHelper.ConverToBytes(str));
+            return CardSendCommand(CPUCardHelper.ConverToBytes(str));
         }
 
         /// <summary>
@@ -110,7 +151,7 @@ namespace CPUCardLib
         /// <returns></returns>
         public byte[] SendStrCommand(ApduCommand apdu)
         {
-            return carder.SendCommand(apdu.ToArray());
+            return CardSendCommand(apdu.ToArray());
         }
 
 
@@ -125,9 +166,33 @@ namespace CPUCardLib
         public ApduMsg SelectFileById(ushort fileId)
         {
             string cmd = "00A4000002";
-            byte[] data = SendStrCommand(cmd + CPUCardHelper.ConvertoHEX(fileId,4));    
+            byte[] data = SendStrCommand(cmd + CPUCardHelper.ConvertoHEX(fileId, 4));
             return ApduMsg.GetApduByData(data);
         }
+
+        public ApduMsg SelectDFFile(ushort fileId)
+        {
+            //00-A4-04-00-03-44-46-31-00 
+            string cmd = "00A40400";
+            List<byte> listdata = CPUCardHelper.ConverToBytes(cmd).ToList();
+
+            byte[] data =  GetDFNameByID(fileId);
+            byte LC = (byte)(data.Length+1);
+            listdata.Add(LC);
+            listdata.AddRange(data);
+            listdata.Add(0);
+
+            //ApduCommand adpCMd = new ApduCommand(listdata.ToArray());
+            ////adpCMd.LE = 0;
+
+
+
+            byte[] Resdata =CardSendCommand(listdata.ToArray());
+            return ApduMsg.GetApduByData(Resdata);
+        }
+
+
+
 
 
         /// <summary>
@@ -169,14 +234,14 @@ namespace CPUCardLib
         {
             //00A40400 09 A00000000386980701
             byte[] dd = CPUCardHelper.ConverToBytes("00A40400");
-            
+
 
             List<byte> result = new List<byte>();
             result.AddRange(dd);
             result.Add((byte)fileName.Length);
             result.AddRange(fileName);
             byte[] cmd = result.ToArray();
-            byte[] data = carder.SendCommand(cmd);
+            byte[] data = CardSendCommand(cmd);
             return ApduMsg.GetApduByData(data);
 
         }
@@ -187,8 +252,75 @@ namespace CPUCardLib
         /// <returns></returns>
         public ApduMsg SelectMF()
         {
-            return ApduMsg.GetApduByData(SendStrCommand("00A40000023F00"));
+            //return ApduMsg.GetApduByData(SendStrCommand("00A40000023F00"));
+            return ApduMsg.GetApduByData(SendStrCommand("00,A4,00,00,00"));
+            
 
+        }
+
+
+
+        public ApduMsg CreateDFFile(ushort fileID, int fileLenght, string FileAccess = "F0F0")
+        {
+            //        执行指令: 80E0 3F01 0D 38 0520 F0F0 95 FFFF 4444463031
+            //说明: 80E0 :指令类别和指令码; 3F01 :文件标识; 0D:长度; 38 :文件类型
+            //0520 :文件的空间大小; F0: 读权限; F0: 写权限;
+            //            4444463031 :文件名 DDF01 也就是ASCII码了
+            //80-E0-00-01-09-38-00-64-F0-F0-95-FF-FF-31 
+            //80,E0,3F,01,0D,38,05,20,F0,F0,95,FF,FF,44,44,46,30,31,
+            //EF01 文件标识
+            //07 LC data 长度（07）
+            //28 文件类型（二进制）
+            //002A 文件长度
+            //F00E 读写权限
+            //FF 保留
+            //80 不支持线路保护
+
+            ApduCommand cmd = new ApduCommand();
+            cmd.CLA = 0x80;
+            cmd.INS = 0xE0;
+            cmd.SetP1P2(fileID);
+
+            //构造一个data  ，长度，权限，
+            List<byte> data = new List<byte>();
+            //文件类型
+            data.Add((byte)CPUFileType.MFDF);
+            //文件长度
+            data.AddRange(CPUCardHelper.IntConvertTo2Byte(fileLenght));
+            //data.Add(0x05);
+            //data.Add(0x20);
+            //添加读写权限
+            //data.AddRange(CPUCardHelper.ConverToBytes(FileAccess));
+            data.Add(0xF0);
+            data.Add(0xF0);
+            //应用文件ID
+            data.Add(0x95);
+            //保留字
+            data.Add(0xFF);
+            data.Add(0xFF);
+
+            //使用文件ID当文件夹名称
+            //data.AddRange(CPUCardHelper.IntConvertTo2Byte(fileID));
+            data.AddRange(GetDFNameByID(fileID));
+
+            //不支持线路保护
+            //data.Add(0x80);
+
+            cmd.Data = data.ToArray();
+
+            ApduMsg msg = ApduMsg.GetApduByData(SendStrCommand(cmd));
+
+            if (msg.Code == "6A-86")
+            {
+                msg.Msg += "(文件已存在)";
+            }
+
+            return msg;
+        }
+
+        public byte[] GetDFNameByID(ushort fileID) 
+        {
+            return Encoding.ASCII.GetBytes("DIR" + fileID.ToString());
         }
 
 
@@ -203,6 +335,7 @@ namespace CPUCardLib
         /// <returns></returns>
         public ApduMsg CreateFile(ushort fileID, CPUFileType fileType, int fileLenght, string FileAccess = "0000")
         {
+           
             //Demo
             //80E0-EF01-07-28-002A-F00E-FF-80
             //EF01 文件标识
@@ -227,7 +360,7 @@ namespace CPUCardLib
             //添加读写权限
             data.AddRange(CPUCardHelper.ConverToBytes(FileAccess));
             //添加文件名
-            data.AddRange(CPUCardHelper.ConverToBytes("FF"));
+            data.AddRange(CPUCardHelper.ConverToBytes("FFFF"));
 
             //不支持线路保护
             data.Add(0x80);
@@ -243,9 +376,7 @@ namespace CPUCardLib
 
             return msg;
         }
-
-
-
+        
         /// <summary>
         /// 创建二进制文件并写入
         /// </summary>
@@ -253,15 +384,12 @@ namespace CPUCardLib
         /// <param name="fileContent"></param>
         /// <param name="fileLenght">指定文件大小</param>
         /// <returns></returns>
-        public ApduMsg CreateAndWriteContent(ushort flieID, string fileContent, int fileLenght = 0, string fileName = "FF")
+        public ApduMsg CreateAndWriteContent(ushort flieID, byte[] WriteData, string fileName = "FF")
         {
-            //需要写入的文件
-            byte[] WriteData = DefaultConding.GetBytes(fileContent);
-
-            if (fileLenght  < WriteData.Length  ) 
-            {
-                fileLenght = WriteData.Length;
-            }
+            int fileLenght = WriteData.Length;
+             
+ 
+            //需要写入的文件 
             ApduMsg msg = CreateFile(flieID, CPUFileType.BinFile, fileLenght, fileName);
             if (!msg.IsSuccess)
             {
@@ -282,6 +410,22 @@ namespace CPUCardLib
             SelectFileById(flieID);
 
             return WriteFileContent(flieID, WriteData);
+
+        }
+
+
+        /// <summary>
+        /// 创建二进制文件并写入
+        /// </summary>
+        /// <param name="flieID"></param>
+        /// <param name="fileContent"></param>
+        /// <param name="fileLenght">指定文件大小</param>
+        /// <returns></returns>
+        public ApduMsg CreateAndWriteContent(ushort fileId, string fileContent, string fileName = "FF")
+        {
+            //需要写入的文件
+            byte[] WriteData = DefaultConding.GetBytes(fileContent);
+            return CreateAndWriteContent(fileId, WriteData);
 
         }
 
@@ -402,22 +546,39 @@ namespace CPUCardLib
 
         }
 
-
-        /// <summary>
-        /// 读取文件
-        /// </summary>
-        /// <param name="flieID">文件名称</param>
-        /// <param name="contentOrMsg"></param>
-        /// <returns></returns>
-        public bool ReadFile(ushort flieID, out string contentOrMsg)
+        public bool ReadFile(ushort fileId, out string contentMsg)
         {
-            contentOrMsg = "";
-            ApduMsg msgd = SelectFileById(flieID);
-            if (!msgd.IsSuccess)
+            byte[] data = new byte[0];
+            string msg;
+            if (ReadFile(fileId, out data,out msg))
             {
-                contentOrMsg = "文件选择失败，可能文件不存在";
+                contentMsg = DefaultConding.GetString(data).Trim();
+                return true;
+            }
+            else
+            {
+                contentMsg = msg;
                 return false;
             }
+            
+        }
+            /// <summary>
+            /// 读取文件
+            /// </summary>
+            /// <param name="flieID">文件名称</param>
+            /// <param name="contentOrMsg"></param>
+            /// <returns></returns>
+            public bool ReadFile(ushort fileId, out byte[] contentOrMsg,out string msgstr)
+        {
+            // ApduMsg msgd = SelectFileById(fileId);
+            //if (!msgd.IsSuccess)
+            //{
+            //    msgstr = "文件选择失败，可能文件不存在";
+            //    return false;
+            //}
+            contentOrMsg = new byte[0];
+            msgstr = "";
+          
 
             List<byte> ResultData = new List<byte>();
 
@@ -472,7 +633,7 @@ namespace CPUCardLib
                 index += ReadLenght;
             }
 
-            contentOrMsg = DefaultConding.GetString(ResultData.ToArray()).Trim();
+            contentOrMsg =  ResultData.ToArray();
             return true;
 
         }

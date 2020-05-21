@@ -19,3 +19,8 @@ packages/
 [Rr]elease/
 Key/
 !NuGet.exe
+.vs/CPUCardTest/v15/Server/sqlite3/storage.ide-wal
+.vs/CPUCardTest/v15/Server/sqlite3/storage.ide-shm
+.vs/CPUCardTest/v15/Server/sqlite3/storage.ide
+.vs/CPUCardTest/v15/Server/sqlite3/db.lock
+.vs/CPUCardTest/DesignTimeBuild/.dtbcache

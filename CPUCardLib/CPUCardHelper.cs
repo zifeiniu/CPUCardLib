@@ -62,7 +62,7 @@ namespace CPUCardLib
         /// <returns></returns>
         public static byte[] ConverToBytes(string hex)
         {
-            char[] sp = new char[] { ' ', '-' };
+            char[] sp = new char[] { ' ', '-', ',','\r', '\n' };
             return ConverToBytes(hex, sp);
         }
 

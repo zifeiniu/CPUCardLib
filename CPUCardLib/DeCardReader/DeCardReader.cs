@@ -1,5 +1,4 @@
-﻿using PscsCardReaderLib;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -44,7 +43,13 @@ namespace CPUCardLib
         }
 
         public bool OpenReader(out string msg)
-        {
+        { 
+            ///如果
+            if (DevicesStatus)
+            {
+                msg = "已经打开了";
+                return true;
+            }
             msg = "";
             //初始化
             icdev = dc_init(100, 115200);
@@ -115,14 +120,14 @@ namespace CPUCardLib
 
             if (!DevicesStatus)
             {
-                if (!OpenReader(out string msg))
+                string msg;
+                if (!OpenReader(out  msg))
                 {
                     throw new Exception(msg);
                     return result;
                 }
             }
-            CPUCardLogHelper.AddLog(LogTypeEnum.Send, "", cmd);
-             
+           
             StringBuilder temp1 = new StringBuilder(64);
             byte[] rbuff = new byte[256];
             byte rlen = 0;
@@ -137,8 +142,7 @@ namespace CPUCardLib
             }
             result = new byte[rlen];
             Array.Copy(rbuff, 0, result, 0, result.Length);
-            CPUCardLogHelper.AddLog(LogTypeEnum.Recivie, "", result);
-
+            
             if (NeedBeep)
             {
                 //由于程序每发送一次指令响一次，太频繁，也影响速度。所以每BeepTimes一次才响一次。

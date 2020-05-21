@@ -29,11 +29,29 @@ namespace CPUCardLib
                 return;
             }
 
+
+
             //设置固定字段的值
             CLA = cmdData[0];
             INS = cmdData[1];
             P1 = cmdData[2];
             P2 = cmdData[3];
+
+
+            CmdNote = ApduMsgHelper.GetSendCmdNote(CLA, INS);
+
+            if (cmdData.Length == 5)
+            {
+                //只有5字节，则最后一个是LE..
+                LE = cmdData[4];
+                //LE不能大于136
+                if (LE > 136)
+                {
+                    CmdNote += $"-LE长度超过限制{LE}-";
+                }
+                return;
+            }
+
 
             if (cmdData.Length > 4)
             {
@@ -41,6 +59,7 @@ namespace CPUCardLib
                 if (cmdData[4] > 0)
                 {
                     LC = cmdData[4];
+                    
                     if (cmdData.Length < LC + 4)
                     {
                         Msg = "LC 长度错误:" + LC;
@@ -50,6 +69,7 @@ namespace CPUCardLib
                     //取出Data并赋值
                     Data = new byte[LC];
                     Array.Copy(cmdData, 5, Data, 0, LC);
+
                 }
                 else
                 {
@@ -59,6 +79,18 @@ namespace CPUCardLib
             }
         }
 
+        public void FixLC() 
+        {
+            byte[] allData =  this.ToArray();
+            LC = (byte)(allData.Length - 4);
+             
+
+        }
+
+        /// <summary>
+        /// 命令说明
+        /// </summary>
+        public string CmdNote;
         
 
         /// <summary>
@@ -194,15 +226,23 @@ namespace CPUCardLib
 
         public override string ToString()
         {
-            return string.Format("CLA:{0},INS:{1} P1:{2} P2:{3} LC:{4} Data:{5} LE:{6} MSG \r\n",
+            try
+            {
+
+                return CmdNote +"\r\n"+ string.Format("CLA:{0},INS:{1} P1:{2} P2:{3} LC:{4} Data:{5} LE:{6} MSG \r\n",
                 CPUCardHelper.ConvertoHEX(CLA),
                 CPUCardHelper.ConvertoHEX(INS),
                 CPUCardHelper.ConvertoHEX(P1),
                 CPUCardHelper.ConvertoHEX(P2),
                 CPUCardHelper.ConvertoHEX(LC),
                 BitConverter.ToString(Data),
-                CPUCardHelper.ConvertoHEX(LE.Value),
+                CPUCardHelper.ConvertoHEX((LE) ??(ushort)0),
                Msg);
+            }
+            catch (Exception ex)
+            {
+                return "解析命令出错"+ex.Message;
+            }
 
         }
 

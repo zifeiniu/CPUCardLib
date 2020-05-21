@@ -1,5 +1,5 @@
 ﻿using CPUCardLib; 
-using PscsCardReaderLib;
+
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -21,9 +21,8 @@ namespace CPUCardTestFrm
 
         public Form1()
         {
-            InitializeComponent();
-            CPUCardLogHelper.logAction += CPUCardLogHelper_logAction;
-            SetAllCardReader();
+            InitializeComponent(); 
+            //SetAllCardReader();
         }
 
         public void SetAllCardReader()
@@ -39,13 +38,7 @@ namespace CPUCardTestFrm
             }
         }
 
-        private void CPUCardLogHelper_logAction(LogInfo obj)
-        {
-            this.Invoke(new Action(() => {
-                txtLog.AppendText("###LOG###" + obj.ToString() + "\r\n");
-            }));
-        }
-
+       
         private void button12_Click(object sender, EventArgs e)
         {
             openFileDialog1.FileName = "";
@@ -68,25 +61,29 @@ namespace CPUCardTestFrm
         {
             DeCardReader deCardReader = new DeCardReader();
             CardReader = new CpuCard(deCardReader);
+            CardReader.ShowLog += this.ShowLog;
         }
+
+
+
         /// <summary>
         /// 使用标准的PCSC设备
         /// </summary>
         public void SelectPCSCDevice()
         {
-            if (!string.IsNullOrWhiteSpace(comboBox1.SelectedItem.ToString()))
-            {
-                PcscCardReader device = new PcscCardReader();
-                device.CardReaderName = comboBox1.SelectedItem.ToString();
-                if (!device.OpenReader(out string msg))
-                {
-                    MessageBox.Show(msg);
-                }
-                else
-                {
-                    CardReader = new CpuCard(device);
-                }
-            }
+            //if (!string.IsNullOrWhiteSpace(comboBox1.SelectedItem.ToString()))
+            //{
+            //    PcscCardReader device = new PcscCardReader();
+            //    device.CardReaderName = comboBox1.SelectedItem.ToString();
+            //    if (!device.OpenReader(out string msg))
+            //    {
+            //        MessageBox.Show(msg);
+            //    }
+            //    else
+            //    {
+            //        CardReader = new CpuCard(device);
+            //    }
+            //}
         }
 
         private void button2_Click(object sender, EventArgs e)
@@ -117,28 +114,39 @@ namespace CPUCardTestFrm
             DisplayLog(msg);
         }
 
+        public ushort GetFixFileID() 
+        {
+
+            return (ushort)100;
+        }
+
         private void button6_Click(object sender, EventArgs e)
         {
-            ApduMsg msg = CardReader.CreateFile(GetFileID(), CPUFileType.BinFile, txtContent.Text.Length);
+            ApduMsg msg = CardReader.CreateFile(GetFixFileID(), CPUFileType.BinFile, txtContent.Text.Length);
             DisplayLog(msg);
         }
 
+        public void ShowLog( string log)
+        {
+            txtLog.AppendText(log);
+        }
+
+
         public void DisplayLog(ApduMsg apduMsg)
         {
+            return;
             if (apduMsg != null)
             {
                 string msg = "----------------------\r\n状态:{0}  信息:{1} 结果:{2} \r\n";
 
-
                 txtLog.AppendText(string.Format(msg, apduMsg.Status, apduMsg.Msg, BitConverter.ToString(apduMsg.ResponseData)));
-            }
-
+            } 
         }
 
         private void button11_Click(object sender, EventArgs e)
         {
 
-            CardReader.ReadFile(GetFileID(), out string msg);
+            CardReader.ReadFile(GetFixFileID(), out string msg);
             txtRead.Text = msg;
         }
 
@@ -177,9 +185,9 @@ namespace CPUCardTestFrm
 
         private void Form1_Load(object sender, EventArgs e)
         {
+            UseDeCard();
             SelectPCSCDevice();
         }
-         
 
         private void button15_Click(object sender, EventArgs e)
         {
@@ -200,7 +208,7 @@ namespace CPUCardTestFrm
 
         private void button10_Click(object sender, EventArgs e)
         {
-            ApduMsg msg = CardReader.WriteContent(GetFileID(), txtContent.Text);
+            ApduMsg msg = CardReader.WriteContent(GetFixFileID(), txtContent.Text);
 
             DisplayLog(msg);
         }
@@ -235,9 +243,50 @@ namespace CPUCardTestFrm
             labYue.Text = "读取失败";
         }
 
-        
+        private void button18_Click(object sender, EventArgs e)
+        {
+            //创建目录
+            ApduMsg msg = CardReader.CreateFile(200, CPUFileType.MFDF, txtContent.Text.Length);
 
-         
+            DisplayLog(msg);
+        }
+
+
+
+
+        private void button19_Click(object sender, EventArgs e)
+        {
+
+            CardReader.CreateDFFile(GetFileID(), 100); 
+        }
+
+        private void button20_Click(object sender, EventArgs e)
+        {
+            ApduMsg msg1 = CardReader.SelectDFFile(GetFileID());
+            DisplayLog(msg1);
+        }
+
+        private void button21_Click(object sender, EventArgs e)
+        {
+            string ASCII = Encoding.ASCII.GetString(CPUCardHelper.ConverToBytes(txtCMd.Text));
+            ShowLog("ASCII ：" + ASCII+"\r\n");
+        }
+
+        private void button22_Click(object sender, EventArgs e)
+        {
+            txtLog.Text = "";
+        }
+
+        private void button7_Click(object sender, EventArgs e)
+        {
+            //CardReader.Auth()
+        }
+
+        private void button23_Click(object sender, EventArgs e)
+        {
+            ApduMsg msg = CardReader.SelectFileById(GetFixFileID());
+            DisplayLog(msg);
+        }
     }
      
 }

@@ -13,6 +13,52 @@ namespace CPUCardLib
     public static class ApduMsgHelper
     {
         /// <summary>
+        /// 定义发送命令
+        /// </summary>
+        private const string DefindSendMsgCodeArray = @"
+0020 验证口令 VERIFY
+0082 外部认证 EXTERNAL AUTHENTICATE
+0084 取随机数 GET CHALLENGE 
+0088 内部认证 INTERNAL AUTHENTICATE
+00A4 选择文件 SELECT
+00B0 读二进制文件 READ BINARY
+00B2 读记录文件 READ RECORD
+00C0 取响应数据 GET RESPONSE 
+00D6 写二进制文件 UPDATE BINARY 
+00D0 写二进制文件 UPDATE BINARY 
+04D6 写二进制文件 UPDATE BINARY 
+04D0 写二进制文件 UPDATE BINARY 
+00DC 写记录文件 UPDATE RECORD
+00D2 写记录文件 UPDATE RECORD
+04DC 写记录文件 UPDATE RECORD
+04D2 写记录文件 UPDATE RECORD
+8416 卡片锁定 CARD BLOCK
+8418 应用解锁 APPLICATION UNBLOCK 
+841E 应用锁定 APPLICATION BLOCK 
+8024 个人密码解锁 PIN UNBLOCK
+8424 个人密码解锁 PIN UNBLOCK
+802C 解锁被锁住的口令 UNBLOCK
+8050 初始化交易 INITIALIZE
+8052 圈存 CREDIT FOR LOAD 
+8054 消费/取现/圈提 DEBIT FOR PURCHASE/CASE WITHDRAW/UNLOAD
+8058 修改透支限额 UPDATE OVERDRAW LIMIT 
+805A 取交易认证 GET TRANSCATION PROVE
+805C 读余额 GET BALANCE 
+805E 重装/修改个人密码 RELOAD/CHANGE PIN 
+800E 擦除 DF ERASE DF
+8030 专用消费 PULL 
+8032 专用充值 CHARGE 
+84D4 增加或修改密钥 WRITE KEY 
+80D4 增加或修改密钥 WRITE KEY 
+80E0 建立文件 CREATE
+0000 写数据 EEPROM WRITE EEPROM 
+0004 读数据 EEPROM READ EEPROM
+0002 初始化 EEPROM INITIAL EEPROM 
+000C 读程序 ROM READ ROM 
+000A 计算程序 ROM CRC CALCULATE ROM CRC ";
+
+
+        /// <summary>
         /// 定义信息常量
         /// </summary>
         private const string DefindMsgCodeArray = @"
@@ -37,12 +83,12 @@ namespace CPUCardLib
 6987 出错 MAC丢失
 6988 出错 MAC不正确
 698D 保留
-6A80 出错 数据域参数不正确
+6A80 出错 数据域参数不正确(记录个数小于 2 或目录级数大于三级)
 6A81 出错 功能不支持；创建不允许；目录无效；应用锁定
 6A82 出错 该文件未找到
 6A83 出错 该记录未找到
 6A84 出错 文件预留空间不足
-6A86 出错 P1或P2不正确
+6A86 出错 文件已存在
 6A88 出错 密匙未找到
 6B00 出错 参数错误
 6Cxx 出错 Le长度错误，实际长度是xx
@@ -70,9 +116,59 @@ namespace CPUCardLib
         /// </summary>
         private static Dictionary<string, ApduMsg> AllMsgDic = new Dictionary<string, ApduMsg>();
 
+        private static Dictionary<string, string> AllSendMsgDic = new Dictionary<string, string>();
+
+
         static ApduMsgHelper()
         {
 
+            //初始化所有的常用信息到Dic 中缓存
+            InitSendMsgDic();
+            InitRecMsgDic();
+        }
+
+        private static void InitSendMsgDic() 
+        {
+           
+             
+            string[] allLines = DefindSendMsgCodeArray.Split('\n');
+
+            for (int i = 0; i < allLines.Length; i++)
+            {
+                int index = allLines[i].IndexOf(' ');
+                if (index > 1)
+                {
+                    string cmd = allLines[i].Substring(0, index).ToUpper();
+                    string msg = allLines[i].Substring(index, allLines[i].Length - index);
+                    if (!AllSendMsgDic.ContainsKey(cmd))
+                    {
+                        AllSendMsgDic.Add(cmd, msg);
+                    }
+                    else
+                    {
+                        Console.WriteLine();
+                    }
+                }
+            }
+        }
+
+
+        public static string GetSendCmdNote(byte CLA,byte INS) 
+        {
+            string CLAStr  = CPUCardHelper.ConvertoHEX(CLA);
+            string INSStr = CPUCardHelper.ConvertoHEX(INS);
+            string cmd = CLAStr + INSStr;
+            if (AllSendMsgDic.TryGetValue(cmd, out string msg))
+            {
+                return msg;
+            }
+            return "未找到指令" + cmd;
+
+
+        }
+
+        private static void InitRecMsgDic() 
+        {
             //初始化所有的常用信息到Dic 中缓存
 
             string[] allLines = DefindMsgCodeArray.Split('\n');
@@ -92,8 +188,8 @@ namespace CPUCardLib
                         ApduMsg msg = new ApduMsg();
 
                         msg.Code = allItems[0];
-
-                        if (Enum.TryParse(allItems[1], out ApduMsgStatusEnum statusEnum))
+                        ApduMsgStatusEnum statusEnum;
+                        if (Enum.TryParse(allItems[1], out statusEnum))
                         {
                             msg.Status = statusEnum;
                         }
@@ -115,7 +211,7 @@ namespace CPUCardLib
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine(  );
+                        Console.WriteLine();
                     }
 
                 }
@@ -123,11 +219,6 @@ namespace CPUCardLib
 
         }
 
-
-        public static ApduMsg GetMsg(byte sw1, byte sw2)
-        {
-            return GetApduMsg(new byte[] { sw1, sw2 });
-        }
 
         public static ApduMsg GetApduMsg(byte[] data)
         {
@@ -144,14 +235,23 @@ namespace CPUCardLib
             byte[] code = new byte[2];
             Array.Copy(data, data.Length - 2, code, 0, 2);
 
-            if (AllMsgDic.TryGetValue(BitConverter.ToString(code), out reslut))
+            string codeStr = BitConverter.ToString(code);
+            if (AllMsgDic.TryGetValue(codeStr, out reslut))
             {
                 reslut = (ApduMsg)reslut.Clone();
             }
             else
             {
-                reslut = new ApduMsg();    
+                reslut = new ApduMsg();
+
                 reslut.Msg = "未找到已定义到状态信息";
+
+                if (codeStr.StartsWith("6C"))
+                {
+                    reslut.Msg = "Le长度错误，实际长度是xx";
+                }
+                
+                
             }
 
             reslut.ResponseData = data;

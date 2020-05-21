@@ -1,6 +1,5 @@
 ﻿using PCSC;
-using PCSC.Iso7816;
-using PscsCardReaderLib;
+using PCSC.Iso7816; 
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -155,8 +154,7 @@ namespace CPUCardLib
             using (RfidReader.Transaction(SCardReaderDisposition.Leave))
             {
 
-                CPUCardLogHelper.AddLog(LogTypeEnum.Send, "", command);
-
+                
                 var sendPci = SCardPCI.GetPci(RfidReader.Protocol);
 
                 var receivePci = new SCardPCI(); // IO returned protocol control information.
@@ -181,13 +179,13 @@ namespace CPUCardLib
 
                     Array.Copy(receiveBuffer, receiveData, bytesReceived);
                     
-                    CPUCardLogHelper.AddLog(LogTypeEnum.Recivie, "", receiveData);
+                    //CPUCardLogHelper.AddLog(LogTypeEnum.Recivie, "", receiveData);
 
                     return receiveData;
                 }
                 catch (Exception ex)
                 {
-                    CPUCardLogHelper.AddLog(LogTypeEnum.error, "设备发送异常" + ex.Message, command);
+                    //CPUCardLogHelper.AddLog(LogTypeEnum.error, "设备发送异常" + ex.Message, command);
                     return new byte[0];
                 }
             }
